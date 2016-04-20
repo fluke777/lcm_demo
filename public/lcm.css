@@ -113,3 +113,11 @@ b:link {
 .col-1of3 {width: 25%;}
 .col-2of3 {width: 15%;}
 .col-3of3 {width: 60%;}
+
+.confirmation_projects_list a {
+  font-size:75%; font-weight: bold;color: #207ec0
+}
+
+.errors {
+  font-size:75%; font-weight: bold;color: red
+}

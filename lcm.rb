@@ -1,216 +1,119 @@
-
-require 'gooddata'
 require 'bundler/setup'
-require 'goodot'
+require 'gooddata'
 require 'sinatra'
 require 'slim'
 require 'sinatra/base'
 require 'active_support/all'
-require_relative 'stuff'
 require_relative 'credentials'
+
+VALID_PROJECTS = ['o3030cqdu5xdcipaepmkn9eqiz9486js', 'g4nidphrzrk2fooiiff9u2aqiotll2z6']
+
+app_state = {
+  segments: []
+}
 
 # Enable Logging
 configure do
     enable :logging
     file = File.new("#{settings.root}/log/#{settings.environment}.log", 'a+')
     file.sync = true
-    use Rack::CommonLogger, file
+    use Rack::CommonLogger, file    
 end
-
-
   
 get '/' do 
-
-  slim :index 
-end
-
-post '/index' do
-
-    @segment_id = params[:segment_name]
-    if params[:projectid] == "basic blueprint"
-        puts HighLine.color('basic blueprint selected', :blue)
-        VERSION = '1.0.0'
-        blueprint = GoodData::Model::ProjectBlueprint.build("#{params[:segment_name]} master #{VERSION}") do |p|
-          p.add_dataset('dataset.departments', title: 'Department', folder: 'Department & Employee') do |d|
-            d.add_anchor('attr.departments.id', title: 'Department ID')
-            d.add_label('label.departments.id', reference:'attr.departments.id', title: 'Department ID')
-            d.add_label('label.departments.name', reference: 'attr.departments.id', title: 'Department Name')
-            d.add_attribute('attr.departments.region', title: 'Department Region')
-            d.add_label('label.departments.region', reference: 'attr.departments.region', title: 'Department Region')
-          end
-        end
-
-        @client = GoodData.connect(LOGIN, PASSWORD, server: FQDN, verify_ssl: false )
-        @domain = @client.domain(DOMAIN)
-        $master_project = @client.create_project_from_blueprint(blueprint, auth_token: TOKEN)
-
-        load_process = redeploy_or_create_process($master_project, './scripts/1.0.0/basic/load', name: 'load', type: :ruby)
-        load_schedule = redeploy_or_create_schedule(load_process, '0 * * * *', 'main.rb', {
-          name: 'load',
-          params: {
-            CLIENT_GDC_PROTOCOL: 'https',
-            CLIENT_GDC_HOSTNAME: HOSTNAME,
-          }
-        })
-        load_schedule.disable!
-
-        filters_process = redeploy_or_create_process($master_project, 'https://github.com/gooddata/app_store/tree/master/apps/user_filters_brick', {})
-        filters_schedule = redeploy_or_create_schedule(filters_process, load_schedule, 'main.rb', {
-          name: 'filters',
-          params: {
-            input_source: "filters.csv",
-            sync_mode: "sync_one_project_based_on_custom_id",
-            organization: DOMAIN,
-            CLIENT_GDC_PROTOCOL: 'https',
-            CLIENT_GDC_HOSTNAME: HOSTNAME,
-            filters_config: {
-              user_column: "login",
-              labels: [{label: "label.departments.name", "column": "department"}]
-            }
-          }
-        })
-        filters_schedule.disable!
-
-        add_users_process = redeploy_or_create_process($master_project, 'https://github.com/gooddata/app_store/tree/master/apps/users_brick', {})
-        add_users_schedule = redeploy_or_create_schedule(add_users_process, filters_schedule, 'main.rb', {
-          name: 'users',
-          params: {
-            input_source: "users.csv",
-            sync_mode: "sync_one_project_based_on_custom_id",
-            organization: DOMAIN,
-            CLIENT_GDC_PROTOCOL: 'https',
-            CLIENT_GDC_HOSTNAME: HOSTNAME
-          }
-        })
-        add_users_schedule.disable!
-
-        @service_segment = create_or_get_segment(@domain, params[:segment_name], $master_project, version: VERSION)
-
-    elsif params[:projectid] == "premium blueprint"
-        puts HighLine.color('premium blueprint selected', :blue)
-    else
-        puts HighLine.color('neither blueprint options selected', :blue)
-    end
-
-      ###########
-      # RELEASE #
-      ###########
-
-      # @domain.synchronize_clients
-      # @domain.provision_client_projects
-
-      # DONE
-      puts HighLine.color('DONE', :green)
-
-       slim :schedule_processes
-end
-
-
-#----------------------------------------------------------------------
-
-post '/schedule_processes' do
-
-
-    @client = GoodData.connect(LOGIN, PASSWORD, server: FQDN, verify_ssl: false )
-    # GoodData.logging_http_on
-    @domain = @client.domain(DOMAIN)
-    VERSION = '1.0.0'
-
-    ###########
-    # SERVICE #
-    ###########
-
-      @service_project = @client.create_project(title: params[:service_project_name], auth_token: TOKEN)
-
-      downloader_process = redeploy_or_create_process(@service_project, "./scripts/#{VERSION}/service/downloader", name: 'downloader', type: :ruby)
-      downloader_schedule = redeploy_or_create_schedule(downloader_process, '0 * * * *', 'main.rb', {
-        name: 'downloader'
-      })
-
-      transform_process = redeploy_or_create_process(@service_project, "./scripts/#{VERSION}/service/transform", name: 'transform', type: :ruby)
-      transform_schedule = redeploy_or_create_schedule(transform_process, downloader_schedule, 'main.rb', {
-        name: 'transform'
-      })
-
-      # association_process = redeploy_or_create_process(@service_project, 'appstore://segments_workspace_association_brick', name: 'association', type: :ruby)
-      association_process = redeploy_or_create_process(@service_project, './scripts/apps/segments_workspace_association_brick', name: 'association', type: :ruby)
-      association_schedule = redeploy_or_create_schedule(association_process, transform_schedule, 'main.rb', {
-        name: 'association',
-        params: {
-          organization: DOMAIN,
-          input_source: "association.csv",
-          CLIENT_GDC_PROTOCOL: 'https',
-          CLIENT_GDC_HOSTNAME: HOSTNAME
-        }
-      })
-
-      provisioning_process = redeploy_or_create_process(@service_project, './scripts/apps/segment_provisioning_brick', name: 'provision', type: :ruby)
-      provisioning_schedule = redeploy_or_create_schedule(provisioning_process, association_schedule, 'main.rb', {
-        name: 'provision',
-        params: {
-          organization: DOMAIN,
-          CLIENT_GDC_PROTOCOL: 'https',
-          CLIENT_GDC_HOSTNAME: HOSTNAME
-        }
-      })
-
-      # Locate user provisioning brick
-      # <Errno::ENOENT: No such file or directory @ rb_sysopen - appstore://users_brick>
-      # users_process = redeploy_or_create_process(@service_project, 'appstore://users_brick', name: 'users', type: :ruby)
-      # users_schedule = redeploy_or_create_schedule(users_process, provisioning_schedule, 'main.rb', {
-      #   name: 'users',
-      #   params: {
-      #     organization: DOMAIN,
-      #     CLIENT_GDC_PROTOCOL: 'https',
-      #     CLIENT_GDC_HOSTNAME: HOSTNAME,
-      #     mode: 'add_to_organization',
-      #     input_source: 'users.csv'
-      #   }
-      # })
-
-      puts "Service project PID is #{@service_project.pid}"
-
-          puts HighLine.color('DONE', :green)
-
-          slim :provision_clients
-end
-
-
-post '/provision_clients' do
-
-   @version='1.0.0'
-   @client = GoodData.connect(LOGIN, PASSWORD, server: FQDN, verify_ssl: false )
-   @domain=@client.domain(DOMAIN)
-   @segment = create_or_get_segment(@domain, params[:segment_id1], $master_project, version: @version)
-   create_or_get_client(@segment, params[:client_name1])
-   create_or_get_client(@segment, params[:client_name2])
-   create_or_get_client(@segment, params[:client_name3])
-   @domain.synchronize_clients
-   @domain.provision_client_projects
-
-  slim :confirmation
-end
-
-
-
-get '/confirmation' do
-
-
-    slim :confirmation
-end
-
-get '/settings' do
-
-
-    slim :settings
-end
-
-post '/settings' do
-
-
-
+  # pp app_state
+  client = GoodData.connect(LOGIN, PASSWORD)
+  # Take all projects created in this domain
+  # @projects = client.projects.pselect {|p| client.get(p.uri)['project']['content']['authorizationToken'] == TOKEN}
+  @projects = VALID_PROJECTS.pmap { |pid| client.projects(pid) }
   slim :index
 end
 
+get '/start_new_demo' do 
+  # pp app_state
+  client = GoodData.connect(LOGIN, PASSWORD)
+  domain = client.domain(DOMAIN)
+  domain.segments.peach do |s|
+    s.delete(force: true)
+  end
+  "DONE"
+end
 
+post '/index' do
+  client = GoodData.connect(LOGIN, PASSWORD)
+  domain = client.domain(DOMAIN)
+  begin
+  @master_project = client.projects(params[:projectid])
+  @segment = domain.create_segment(segment_id: params[:segment_name], master_project: @master_project)
+  app_state[:segments] << { segment_id: params[:segment_name], master_project_id: params[:projectid] }
+  rescue RestClient::BadRequest => e
+    errors = true
+  end
+  
+  unless errors
+    redirect "/service_projects"
+  else
+    @projects = VALID_PROJECTS.pmap { |pid| client.projects(pid) }
+    @errors = "Something went wrong: Either the segment name is already used or the master is already linked to a different segment. Use a different name or restart a demo."
+    slim :index
+  end
+end
 
+get '/service_projects' do
+  client = GoodData.connect(LOGIN, PASSWORD)
+  domain = client.domain(DOMAIN)
+  current_segment = app_state[:segments].last
+  @segment = domain.segments(current_segment[:segment_id])
+  @master_project = client.projects(current_segment[:master_project_id])
+  slim :service_projects
+end
+
+post '/service_projects' do
+  client = GoodData.connect(LOGIN, PASSWORD)
+  domain = client.domain(DOMAIN)
+
+  current_segment = app_state[:segments].last
+
+  # Here we could spin the service projects
+  # service_project = client.create_project(title: params[:service_project_name], auth_token: TOKEN)
+  # current_segment[:service_project] = service_project.pid
+  current_segment[:service_project] = params[:service_project_name]
+
+  if params.key?('button_1')
+    redirect '/'
+  else
+    redirect '/provision_clients'
+  end
+end
+
+get '/provision_clients' do
+  puts app_state
+  @segments = app_state[:segments]
+  slim :provision_clients
+end
+
+post '/provision_clients' do
+  client = GoodData.connect(LOGIN, PASSWORD)
+  domain = client.domain(DOMAIN)
+
+  stuff = params['client_name'].zip(params['segment_id'])
+    .map {|client_id, segment_id| {client_id: client_id, segment_id: segment_id}}
+    .reject { |thing| thing[:client_id].blank? }
+  
+  app_state[:clients] = stuff.pmap do |stuff|
+    stuff[:project] = domain.segments(stuff[:segment_id]).master_project.clone(:title => stuff[:client_id], auth_token: TOKEN).pid
+    stuff
+  end
+  app_state[:clients].each do |s|
+    domain.segments(s[:segment_id]).create_client(id: s[:client_id], project: client.projects(s[:project]))
+  end
+  redirect '/confirmation'
+end
+
+get '/confirmation' do
+  client = GoodData.connect(LOGIN, PASSWORD)
+  domain = client.domain(DOMAIN)
+
+  @projects = app_state[:clients].pmap { |c| {segment: domain.segments(c[:segment_id]), project: client.projects(c[:project])}}
+  slim :confirmation
+end

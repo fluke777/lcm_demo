@@ -26,33 +26,33 @@ form action="/provision_clients" method="POST" align="left"
     .col-2of2
 
      h2 Provision Customers
-     small.italic '#{@service_project.title}' service project successfully created!
+     / small.italic '#{@service_project.title}' service project successfully created!
      / small.italic  service project successfully created!
-     <a href="#{FQDN}/admin/disc/#/projects/#{@service_project.pid}">(manage schedules)</a>
+     / <a href="#{FQDN}/admin/disc/#/projects/#{@service_project.pid}">(manage schedules)</a>
      /*h4 Provision Client Workspaces*/
      br
      small Enter customer names and map to segments below:
      br
      br
-   	 input>  id="textinput" name="client_name1"
-     select name="segment_id1" style="margin-left:0px" 
-          <option value="" disabled selected>Select Segment..</option>
-           option  value="acme_basic" acme_basic
-           option  value="acme_premium" acme_premium
+   	 input>  id="textinput" name="client_name[]"
+     select name="segment_id[]" style="margin-left:0px"
+       option value="" disabled="disabled" Select Segment..
+       - @segments.each do |seg|
+        option value=seg[:segment_id] #{seg[:segment_id]}
      br
      br
-     input>  id="textinput" name="client_name2"
-     select name="segment_id2" style="margin-left:0px" 
-          <option value="" disabled selected>Select Segment..</option>
-           option  value="acme_basic" acme_basic
-           option  value="acme_premium" acme_premium
+     input>  id="textinput" name="client_name[]"
+     select name="segment_id[]" style="margin-left:0px" 
+       option value="" disabled="disabled" Select Segment..
+       - @segments.each do |seg|
+        option value=seg[:segment_id] #{seg[:segment_id]}
      br
      br
-     input>  id="textinput" name="client_name3"
-     select name="segment_id3" style="margin-left:0px" 
-          <option value="" disabled selected>Select Segment..</option>
-           option  value="acme_basic" acme_basic
-           option  value="acme_premium" acme_premium
+     input>  id="textinput" name="client_name[]"
+     select name="segment_id[]" style="margin-left:0px" 
+       option value="" disabled="disabled" Select Segment..
+       - @segments.each do |seg|
+        option value=seg[:segment_id] #{seg[:segment_id]}
      br
      br
      small or add more clients in bulk using 

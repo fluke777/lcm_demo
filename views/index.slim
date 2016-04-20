@@ -25,6 +25,12 @@ form action="/index" method="POST" align="left"
     .col-1of2
     .col-2of2
 
+     - if @errors.blank?
+       
+     - else
+       div.errors #{@errors}
+       
+
      h2 Define Your Data Products
      small  A data product includes all the necessary components to deliver analytics to a store as well as processes for data distribution, reports, metrics, dashboards. Create a new data product for each of the store segments
      br
@@ -34,13 +40,14 @@ form action="/index" method="POST" align="left"
      br
      br
      small.tabbed Data Product Master: &nbsp 
+
      select name="projectid" style="margin-left:0px" 
-          - client = GoodData.connect(LOGIN, PASSWORD, server: FQDN, verify_ssl: false )
+          # - client = GoodData.connect(LOGIN, PASSWORD, server: FQDN, verify_ssl: false )
           <option value="" disabled selected>Select one..</option>
-           option  value="basic blueprint" Create using Basic blueprint
-           option  value="premium blueprint" Create using Premium blueprint
-          - client.projects.each do |project|
-           option value="#{project.pid}" #{project.title} 
+           / option  value="basic blueprint" Create using Basic blueprint
+           / option  value="premium blueprint" Create using Premium blueprint
+          - @projects.each do |project|
+           option value="#{project.pid}" #{project.title}
      br
      br
      hr style="border-top: dotted 1px;"

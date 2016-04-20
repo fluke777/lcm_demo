@@ -1,5 +1,5 @@
 
-form action="/schedule_processes" method="POST" align="left"
+form action="/service_projects" method="POST" align="left"
 
   .row
     .col-1of3
@@ -26,12 +26,12 @@ form action="/schedule_processes" method="POST" align="left"
     .col-2of2
 
      h2 Activate Your Data Product
-     small.italic '#{@service_segment.id}' segment successfully created!
+     small.italic '#{@segment.id}' segment successfully created!
      br
      small.italic master project 
-     small.italic href='#{FQDN}/#s=/gdc/projects/#{$master_project.pid}' '#{$master_project.title}'
+     small.italic href='#{FQDN}/#s=/gdc/projects/#{@master_project.pid}' '#{@master_project.title}'
      small.italic< successfully created! 
-	 <a href="#{FQDN}/#s=/gdc/projects/#{$master_project.pid}">(details)</a>
+	 <a href="#{FQDN}/#s=/gdc/projects/#{@master_project.pid}">(details)</a>
 
      /* h4 Schedule Processes*/
      br
@@ -45,11 +45,11 @@ form action="/schedule_processes" method="POST" align="left"
      br
      small Define another analytics project?
      .col7 
-      button id="search-form" type="submit" Define New Product
+      input name="button_1" id="search-form" type="submit" value="Define New Product"
      br
      hr style="border-top: dotted 1px;"
   .row
-     button id="search-form" type="submit" Next
+     input name="button_2" id="search-form" value="Next" type="submit" 
      a href="http://localhost:4567" id="cancel" Cancel 
 
   .row

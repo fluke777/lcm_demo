@@ -29,19 +29,18 @@ form action="/index" method="POST" align="left"
      small.italic All customer projects have been successfully created!
      br
      br
-     small Project list:
-     select name="projectid" style="margin-left:0px" 
-          - client = GoodData.connect(LOGIN, PASSWORD, server: FQDN, verify_ssl: false )
-          <option value="" disabled selected>Select one..</option>
-           option  value="basic blueprint" Create using Basic blueprint
-           option  value="premium blueprint" Create using Premium blueprint
-          - client.projects.each do |project|
-           option value="#{project.pid}" #{project.title} 
-      
+     div.confirmation_projects_list
+       small Project list:
+       - @projects.each do |item|
+          div
+            small.new.active #{item[:segment].id}
+            a href="#{item[:project].browser_uri}" target="_blank" #{item[:project].title} (#{item[:project].pid})
+         
+     / select name="projectid" style="margin-left:0px"
+       / option value="" disabled="selected">Select one..</option>
+      / - @projects.each do |project|
+        / option value=project.pid #{project.pid + " " + project.title}
+
   .row
      button id="search-form" type="submit" Close
-     a href="http://localhost:4567" id="cancel" Cancel 
-
-
-
-
+     a href="http://localhost:4567" id="cancel" Cancel
