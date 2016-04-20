@@ -31,6 +31,9 @@ end
 
 get '/start_new_demo' do 
   # pp app_state
+  app_state = {
+   segments: []
+  }
   client = GoodData.connect(LOGIN, PASSWORD)
   domain = client.domain(DOMAIN)
   domain.segments.peach do |s|
